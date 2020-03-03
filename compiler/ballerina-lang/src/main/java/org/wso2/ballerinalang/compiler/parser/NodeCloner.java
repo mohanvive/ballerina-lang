@@ -62,6 +62,7 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangArrowFunction;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangBinaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCheckPanickedExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCheckedExpr;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangConstRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangConstant;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangElvisExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangErrorVarRef;
@@ -86,6 +87,7 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangQueryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordLiteral.BLangRecordKey;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordLiteral.BLangRecordKeyValueField;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordLiteral.BLangRecordSpreadOperatorField;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordLiteral.BLangRecordVarNameField;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordVarRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordVarRef.BLangRecordVarRefKeyValue;
@@ -301,6 +303,7 @@ class NodeCloner extends BLangNodeVisitor {
         clone.fields = cloneList(source.fields);
         clone.initFunction = clone(source.initFunction);
         clone.isAnonymous = source.isAnonymous;
+        clone.isLocal = source.isLocal;
         clone.isFieldAnalyseRequired = source.isFieldAnalyseRequired;
         clone.typeRefs = cloneList(source.typeRefs);
     }
@@ -1429,7 +1432,7 @@ class NodeCloner extends BLangNodeVisitor {
     }
 
     @Override
-    public void visit(BLangSimpleVarRef.BLangConstRef constRef) {
+    public void visit(BLangConstRef constRef) {
         // Ignore
     }
 
@@ -1470,11 +1473,6 @@ class NodeCloner extends BLangNodeVisitor {
 
     @Override
     public void visit(BLangIndexBasedAccess.BLangXMLAccessExpr xmlAccessExpr) {
-        // Ignore
-    }
-
-    @Override
-    public void visit(BLangRecordLiteral.BLangJSONLiteral jsonLiteral) {
         // Ignore
     }
 
@@ -1705,6 +1703,17 @@ class NodeCloner extends BLangNodeVisitor {
         clone.key = newKey;
 
         clone.valueExpr = clone(source.valueExpr);
+    }
+
+
+    @Override
+    public void visit(BLangRecordSpreadOperatorField source) {
+
+        BLangRecordSpreadOperatorField clone = new BLangRecordSpreadOperatorField();
+        source.cloneRef = clone;
+        clone.pos = source.pos;
+        clone.addWS(source.getWS());
+        clone.expr = clone(source.expr);
     }
 
     @Override

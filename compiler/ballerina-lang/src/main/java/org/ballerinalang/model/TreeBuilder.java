@@ -163,6 +163,7 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangArrowFunction;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangBinaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCheckPanickedExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCheckedExpr;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangConstRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangConstant;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangElvisExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangErrorVarRef;
@@ -370,6 +371,10 @@ public class TreeBuilder {
         return new BLangLiteral();
     }
 
+    public static LiteralNode createConstLiteralNode() {
+        return new BLangConstRef();
+    }
+
     public static LiteralNode createNumericLiteralExpression() {
         return new BLangNumericLiteral();
     }
@@ -384,6 +389,10 @@ public class TreeBuilder {
 
     public static RecordLiteralNode.RecordKeyValueFieldNode createRecordKeyValue() {
         return new BLangRecordLiteral.BLangRecordKeyValueField();
+    }
+
+    public static RecordLiteralNode.RecordSpreadOperatorFieldNode createRecordSpreadOperatorField() {
+        return new BLangRecordLiteral.BLangRecordSpreadOperatorField();
     }
 
     public static TableLiteralNode createTableLiteralNode() {
