@@ -139,7 +139,7 @@ public class QueryDesugar extends BLangNodeVisitor {
                                                                     BLangForeach leafForeach) {
         BLangXMLTextLiteral xmlTextLiteral = ASTBuilderUtil.createXMLTextLiteralNode(null, null, pos,
                 selectClause.expression.type);
-        BLangLiteral emptyLiteral = ASTBuilderUtil.createLiteral(pos, symTable.stringType, " ");
+        BLangLiteral emptyLiteral = ASTBuilderUtil.createLiteral(pos, symTable.stringType, "");
         xmlTextLiteral.addTextFragment(emptyLiteral);
         BVarSymbol xmlVarSymbol = new BVarSymbol(0, new Name("$outputDataXML$"),
                 env.scope.owner.pkgID, selectClause.expression.type, env.scope.owner);
