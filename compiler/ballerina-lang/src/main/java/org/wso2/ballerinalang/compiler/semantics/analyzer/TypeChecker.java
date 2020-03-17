@@ -2804,8 +2804,15 @@ public class TypeChecker extends BLangNodeVisitor {
         }
 
         BType selectType = checkExpr(selectClause.expression, whereEnv, expSelectType);
-
-        resultType = selectType == symTable.semanticError ? selectType : new BArrayType(selectType);
+        if (selectType == symTable.semanticError) {
+            resultType = selectType;
+        } else {
+            if (expType.tag == TypeTags.NONE) {
+                resultType = new BArrayType(selectType);
+            } else {
+                resultType = expType;
+            }
+        }
     }
 
     SymbolEnv typeCheckFromClause(BLangFromClause fromClause, SymbolEnv parentEnv) {

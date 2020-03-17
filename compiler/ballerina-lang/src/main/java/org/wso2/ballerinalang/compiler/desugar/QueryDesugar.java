@@ -122,29 +122,29 @@ public class QueryDesugar extends BLangNodeVisitor {
         BLangForeach leafForeach = buildFromClauseBlock(fromClauseList);
         BLangBlockStmt foreachBody = ASTBuilderUtil.createBlockStmt(pos);
 
-        if (selectClause.expression.type.tag == TypeTags.XML) {
-            return buildExpressionStatementForXML(selectClause, pos, env, whereClauseList, letClauseList,
-                    foreachBody, leafForeach);
+        if (queryExpr.type.tag == TypeTags.XML || queryExpr.type.tag == TypeTags.STRING) {
+            return buildExpressionStatement(selectClause, pos, env, whereClauseList, letClauseList,
+                    foreachBody, leafForeach, queryExpr.type.tag);
         } else {
             return buildExpressionStatementForList(selectClause, pos, env, whereClauseList, letClauseList,
                     foreachBody, leafForeach);
         }
     }
 
-    private BLangStatementExpression buildExpressionStatementForXML(BLangSelectClause selectClause,
-                                                                    DiagnosticPos pos, SymbolEnv env,
-                                                                    List<BLangWhereClause> whereClauseList,
-                                                                    List<BLangLetClause> letClauseList,
-                                                                    BLangBlockStmt foreachBody,
-                                                                    BLangForeach leafForeach) {
-        BLangXMLTextLiteral xmlTextLiteral = ASTBuilderUtil.createXMLTextLiteralNode(null, null, pos,
-                selectClause.expression.type);
-        BLangLiteral emptyLiteral = ASTBuilderUtil.createLiteral(pos, symTable.stringType, "");
-        xmlTextLiteral.addTextFragment(emptyLiteral);
-        BVarSymbol xmlVarSymbol = new BVarSymbol(0, new Name("$outputDataXML$"),
-                env.scope.owner.pkgID, selectClause.expression.type, env.scope.owner);
-        BLangSimpleVariable outputArrayVariable = ASTBuilderUtil.createVariable(pos, "$outputDataXML$",
-                selectClause.expression.type, xmlTextLiteral, xmlVarSymbol);
+    private BLangStatementExpression buildExpressionStatement(BLangSelectClause selectClause,
+                                                              DiagnosticPos pos, SymbolEnv env,
+                                                              List<BLangWhereClause> whereClauseList,
+                                                              List<BLangLetClause> letClauseList,
+                                                              BLangBlockStmt foreachBody,
+                                                              BLangForeach leafForeach,
+                                                              int queryExprTag) {
+
+        BLangSimpleVariable outputArrayVariable;
+        if (queryExprTag == TypeTags.XML) {
+            outputArrayVariable = createXMLOutputVariable(selectClause, pos, env);
+        } else {
+            outputArrayVariable = createStringOutputVariable(selectClause, pos, env);
+        }
 
         BLangSimpleVariableDef outputVariableDef =
                 ASTBuilderUtil.createVariableDef(pos, outputArrayVariable);
@@ -168,6 +168,29 @@ public class QueryDesugar extends BLangNodeVisitor {
         BLangStatementExpression stmtExpr = ASTBuilderUtil.createStatementExpression(blockStmt, outputVarRef);
         stmtExpr.type = selectClause.expression.type;
         return stmtExpr;
+    }
+
+    private BLangSimpleVariable createXMLOutputVariable(BLangSelectClause selectClause, DiagnosticPos pos,
+                                                        SymbolEnv env) {
+        BLangXMLTextLiteral xmlTextLiteral = ASTBuilderUtil.createXMLTextLiteralNode(null, null, pos,
+                selectClause.expression.type);
+        BLangLiteral emptyLiteral = ASTBuilderUtil.createLiteral(pos, symTable.stringType, "");
+        xmlTextLiteral.addTextFragment(emptyLiteral);
+        BVarSymbol xmlVarSymbol = new BVarSymbol(0, new Name("$outputDataXML$"),
+                env.scope.owner.pkgID, selectClause.expression.type, env.scope.owner);
+
+        return ASTBuilderUtil.createVariable(pos, "$outputDataXML$",
+                selectClause.expression.type, xmlTextLiteral, xmlVarSymbol);
+    }
+
+    private BLangSimpleVariable createStringOutputVariable(BLangSelectClause selectClause, DiagnosticPos pos,
+                                                           SymbolEnv env) {
+        BLangLiteral emptyStringLiteral = ASTBuilderUtil.createLiteral(pos, symTable.stringType, "");
+        BVarSymbol stringVarSymbol = new BVarSymbol(0, new Name("$outputDataString$"),
+                env.scope.owner.pkgID, selectClause.expression.type, env.scope.owner);
+
+        return ASTBuilderUtil.createVariable(pos, "$outputDataString$",
+                selectClause.expression.type, emptyStringLiteral, stringVarSymbol);
     }
 
     private BLangStatementExpression buildExpressionStatementForList(BLangSelectClause selectClause,
