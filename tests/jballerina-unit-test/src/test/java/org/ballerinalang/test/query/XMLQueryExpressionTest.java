@@ -49,7 +49,7 @@ public class XMLQueryExpressionTest {
                 "<name>Sherlock Holmes</name><name>The Da Vinci Code</name>");
     }
 
-    @Test(description = "Test simple query expression for XMLs")
+    @Test(description = "Test simple query expression for XMLs - #2")
     public void testSimpleQueryExprForXML2() {
         BValue[] returnValues = BRunUtil.invoke(result, "testSimpleQueryExprForXML2");
         Assert.assertNotNull(returnValues);
@@ -58,7 +58,7 @@ public class XMLQueryExpressionTest {
                 "<book>the book</book>bit of text✂✅");
     }
 
-    @Test(description = "Test simple query expression for XMLs")
+    @Test(description = "Test simple query expression for XMLs - #3")
     public void testSimpleQueryExprForXML3() {
         BValue[] returnValues = BRunUtil.invoke(result, "testSimpleQueryExprForXML3");
         Assert.assertNotNull(returnValues);
