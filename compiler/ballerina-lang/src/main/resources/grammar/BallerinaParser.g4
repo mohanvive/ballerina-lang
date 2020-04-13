@@ -247,6 +247,7 @@ simpleTypeName
     :   TYPE_ANY
     |   TYPE_ANYDATA
     |   TYPE_HANDLE
+    |   TYPE_READONLY
     |   valueTypeName
     |   referenceTypeName
     |   nilLiteral
@@ -1096,7 +1097,7 @@ reservedWord
 
 // Markdown documentation
 documentationString
-    :   documentationLine+ parameterDocumentationLine* returnParameterDocumentationLine? deprecatedAnnotationDocumentationLine?
+    :   documentationLine+ parameterDocumentationLine* returnParameterDocumentationLine? deprecatedParametersDocumentationLine? deprecatedAnnotationDocumentationLine?
     ;
 
 documentationLine
@@ -1113,6 +1114,10 @@ returnParameterDocumentationLine
 
 deprecatedAnnotationDocumentationLine
     :   deprecatedAnnotationDocumentation deprecateAnnotationDescriptionLine*
+    ;
+
+deprecatedParametersDocumentationLine
+    :   deprecatedParametersDocumentation parameterDocumentationLine+
     ;
 
 documentationContent
@@ -1161,6 +1166,10 @@ returnParameterDocumentation
 
 deprecatedAnnotationDocumentation
     :   DeprecatedDocumentation
+    ;
+
+deprecatedParametersDocumentation
+    :   DeprecatedParametersDocumentation
     ;
 
 docParameterName
@@ -1232,6 +1241,7 @@ documentationIdentifier
     |   TYPE_FUTURE
     |   TYPE_ANYDATA
     |   TYPE_HANDLE
+    |   TYPE_READONLY
     ;
 
 braket

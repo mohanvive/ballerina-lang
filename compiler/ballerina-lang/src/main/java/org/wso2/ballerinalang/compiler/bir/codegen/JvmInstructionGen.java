@@ -307,7 +307,8 @@ public class JvmInstructionGen {
                 bType.tag == TypeTags.INVOKABLE ||
                 bType.tag == TypeTags.FINITE ||
                 bType.tag == TypeTags.HANDLE ||
-                bType.tag == TypeTags.TYPEDESC) {
+                bType.tag == TypeTags.TYPEDESC ||
+                bType.tag == TypeTags.READONLY) {
             mv.visitVarInsn(ALOAD, valueIndex);
         } else if (bType.tag == JTypeTags.JTYPE) {
             generateJVarLoad(mv, (JType) bType, currentPackageName, valueIndex);
@@ -392,7 +393,8 @@ public class JvmInstructionGen {
                 bType.tag == TypeTags.INVOKABLE ||
                 bType.tag == TypeTags.FINITE ||
                 bType.tag == TypeTags.HANDLE ||
-                bType.tag == TypeTags.TYPEDESC) {
+                bType.tag == TypeTags.TYPEDESC ||
+                bType.tag == TypeTags.READONLY) {
             mv.visitVarInsn(ASTORE, valueIndex);
         } else if (bType.tag == JTypeTags.JTYPE) {
             generateJVarStore(mv, (JType) bType, currentPackageName, valueIndex);

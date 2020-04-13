@@ -38,6 +38,7 @@ import org.ballerinalang.jvm.types.BType;
 import org.ballerinalang.jvm.types.BTypedescType;
 import org.ballerinalang.jvm.types.BTypes;
 import org.ballerinalang.jvm.types.BUnionType;
+import org.ballerinalang.jvm.types.BXMLType;
 import org.ballerinalang.jvm.types.TypeTags;
 import org.ballerinalang.jvm.util.Flags;
 import org.ballerinalang.jvm.values.ArrayValue;
@@ -567,6 +568,7 @@ public class TypeChecker {
             case TypeTags.FLOAT_TAG:
             case TypeTags.DECIMAL_TAG:
             case TypeTags.STRING_TAG:
+            case TypeTags.XML_TEXT_TAG:
             case TypeTags.CHAR_STRING_TAG:
             case TypeTags.BOOLEAN_TAG:
             case TypeTags.NULL_TAG:
@@ -574,11 +576,6 @@ public class TypeChecker {
                     return isFiniteTypeMatch((BFiniteType) sourceType, targetType);
                 }
                 return sourceType.getTag() == targetType.getTag();
-            case TypeTags.XML_TAG:
-                if (sourceType.getTag() == TypeTags.FINITE_TYPE_TAG) {
-                    return isFiniteTypeMatch((BFiniteType) sourceType, targetType);
-                }
-                return TypeTags.isXMLTypeTag(sourceType.getTag());
             case TypeTags.INT_TAG:
                 if (sourceType.getTag() == TypeTags.FINITE_TYPE_TAG) {
                     return isFiniteTypeMatch((BFiniteType) sourceType, targetType);
@@ -592,6 +589,8 @@ public class TypeChecker {
                 return checkIsServiceType(sourceType);
             case TypeTags.HANDLE_TAG:
                 return sourceType.getTag() == TypeTags.HANDLE_TAG;
+            case TypeTags.READONLY_TAG:
+                return isReadonlyType(sourceType);
             default:
                 return checkIsRecursiveType(sourceType, targetType,
                         unresolvedTypes == null ? new ArrayList<>() : unresolvedTypes);
@@ -638,6 +637,8 @@ public class TypeChecker {
                 return checkIsErrorType(sourceType, (BErrorType) targetType, unresolvedTypes);
             case TypeTags.TYPEDESC_TAG:
                 return checkTypeDescType(sourceType, (BTypedescType) targetType, unresolvedTypes);
+            case TypeTags.XML_TAG:
+                return checkIsXMLType(sourceType, targetType, unresolvedTypes);
             default:
                 // other non-recursive types shouldn't reach here
                 return false;
@@ -694,6 +695,26 @@ public class TypeChecker {
         }
     }
 
+    private static boolean checkIsXMLType(BType sourceType, BType targetType, List<TypePair> unresolvedTypes) {
+        if (sourceType.getTag() == TypeTags.FINITE_TYPE_TAG) {
+            return isFiniteTypeMatch((BFiniteType) sourceType, targetType);
+        }
+        BXMLType target = ((BXMLType) targetType);
+        if (sourceType.getTag() == TypeTags.XML_TAG) {
+            BType targetConstraint = target.constraint;
+            // TODO: Revisit and check why xml<xml<constraint>>> on chained iteration
+            while (target.constraint.getTag() == TypeTags.XML_TAG) {
+                target = (BXMLType) target.constraint;
+                targetConstraint = target.constraint;
+            }
+            return checkIsType(((BXMLType) sourceType).constraint, targetConstraint,
+                    unresolvedTypes);
+        } else if (TypeTags.isXMLTypeTag(sourceType.getTag())) {
+            return checkIsType(sourceType, target.constraint, unresolvedTypes);
+        }
+        return false;
+    }
+
     private static List<BType> getWideTypeComponents(BRecordType recType) {
         List<BType> types = new ArrayList<>();
         for (BField f : recType.getFields().values()) {
@@ -715,6 +736,15 @@ public class TypeChecker {
 
     private static boolean checkIsJSONType(BType sourceType, List<TypePair> unresolvedTypes) {
         BJSONType jsonType = (BJSONType) BTypes.typeJSON;
+
+        // If we encounter two types that we are still resolving, then skip it.
+        // This is done to avoid recursive checking of the same type.
+        TypePair pair = new TypePair(sourceType, jsonType);
+        if (unresolvedTypes.contains(pair)) {
+            return true;
+        }
+        unresolvedTypes.add(pair);
+
         switch (sourceType.getTag()) {
             case TypeTags.STRING_TAG:
             case TypeTags.CHAR_STRING_TAG:
@@ -739,6 +769,18 @@ public class TypeChecker {
                 return isFiniteTypeMatch((BFiniteType) sourceType, jsonType);
             case TypeTags.MAP_TAG:
                 return checkIsType(((BMapType) sourceType).getConstrainedType(), jsonType, unresolvedTypes);
+            case TypeTags.RECORD_TYPE_TAG:
+                BRecordType recordType = (BRecordType) sourceType;
+                for (BField field : recordType.getFields().values()) {
+                    if (!checkIsJSONType(field.type, unresolvedTypes)) {
+                        return false;
+                    }
+                }
+
+                if (!recordType.sealed) {
+                    return checkIsJSONType(recordType.restFieldType, unresolvedTypes);
+                }
+                return true;
             case TypeTags.UNION_TAG:
                 for (BType memberType : ((BUnionType) sourceType).getMemberTypes()) {
                     if (!checkIsJSONType(memberType, unresolvedTypes)) {
@@ -1064,6 +1106,23 @@ public class TypeChecker {
         return false;
     }
 
+    private static boolean isReadonlyType(BType sourceType) {
+        if (isSimpleBasicType(sourceType)) {
+            return true;
+        }
+
+        switch (sourceType.getTag()) {
+            case TypeTags.NULL_TAG:
+            case TypeTags.ERROR_TAG:
+            case TypeTags.INVOKABLE_TAG:
+            case TypeTags.SERVICE_TAG:
+            case TypeTags.TYPEDESC_TAG:
+            case TypeTags.HANDLE_TAG:
+                return true;
+        }
+        return false;
+    }
+
     private static boolean checkContraints(BType sourceConstraint, BType targetConstraint,
                                            List<TypePair> unresolvedTypes) {
         if (sourceConstraint == null) {
@@ -1133,6 +1192,8 @@ public class TypeChecker {
     private static boolean checkIsLikeOnValue(Object sourceValue, BType sourceType, BType targetType,
                                               List<TypeValuePair> unresolvedValues, boolean allowNumericConversion) {
         switch (targetType.getTag()) {
+            case TypeTags.READONLY_TAG:
+                return true;
             case TypeTags.BYTE_TAG:
                 if (TypeTags.isIntegerTypeTag(sourceType.getTag())) {
                     return isByteLiteral((Long) sourceValue);
@@ -1188,7 +1249,12 @@ public class TypeChecker {
             case TypeTags.XML_PI_TAG:
             case TypeTags.XML_TEXT_TAG:
                 if (sourceType.getTag() == TypeTags.XML_TAG) {
-                    return matchXMLType((XMLValue) sourceValue, targetType);
+                    return checkIsLikeNonElementSingleton((XMLValue) sourceValue, targetType);
+                }
+                return false;
+            case TypeTags.XML_TAG:
+                if (sourceType.getTag() == TypeTags.XML_TAG) {
+                    return checkIsLikeXMLSequenceType((XMLValue) sourceValue, targetType);
                 }
                 return false;
             case TypeTags.UNION_TAG:
@@ -1223,9 +1289,12 @@ public class TypeChecker {
         }
     }
 
-    private static boolean matchXMLType(XMLValue xmlSource, BType targetType) {
+    private static XMLNodeType getXmlNodeType(BType type) {
         XMLNodeType nodeType = null;
-        switch (targetType.getTag()) {
+        switch (type.getTag()) {
+            case TypeTags.XML_ELEMENT_TAG:
+                nodeType = XMLNodeType.ELEMENT;
+                break;
             case TypeTags.XML_COMMENT_TAG:
                 nodeType = XMLNodeType.COMMENT;
                 break;
@@ -1236,7 +1305,17 @@ public class TypeChecker {
                 nodeType = XMLNodeType.TEXT;
                 break;
             default:
-                return false;
+                return null;
+        }
+        return nodeType;
+    }
+
+    private static boolean checkIsLikeNonElementSingleton(XMLValue xmlSource, BType targetType) {
+
+        XMLNodeType nodeType = getXmlNodeType(targetType);
+
+        if (nodeType == null) {
+            return false;
         }
 
         if (xmlSource.getNodeType() == nodeType) {
@@ -1245,11 +1324,49 @@ public class TypeChecker {
 
         if (xmlSource.getNodeType() == XMLNodeType.SEQUENCE) {
             XMLSequence seq = (XMLSequence) xmlSource;
-            return seq.size() == 1 && seq.getChildrenList().get(0).getNodeType() == nodeType;
+
+            return seq.size() == 1 && seq.getChildrenList().get(0).getNodeType() == nodeType ||
+                    (nodeType == XMLNodeType.TEXT && seq.isEmpty());
         }
         return false;
     }
 
+    private static boolean checkIsLikeXMLSequenceType(XMLValue xmlSource, BType targetType) {
+        if (xmlSource.getNodeType() != XMLNodeType.SEQUENCE) {
+            return false;
+        }
+        Set<XMLNodeType> acceptedNodes = new HashSet<>();
+
+        BXMLType target = (BXMLType) targetType;
+        if (target.constraint.getTag() == TypeTags.UNION_TAG) {
+            getXMLNodeOnUnion((BUnionType) target.constraint, acceptedNodes);
+        } else {
+            acceptedNodes.add(getXmlNodeType(((BXMLType) targetType).constraint));
+        }
+
+        XMLSequence seq = (XMLSequence) xmlSource;
+        for (BXML m : seq.getChildrenList()) {
+            if (!acceptedNodes.contains(m.getNodeType())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void getXMLNodeOnUnion(BUnionType unionType, Set<XMLNodeType> nodeTypes) {
+        // Currently there are only 4 xml subtypes
+        if (nodeTypes.size() == 4) {
+            return;
+        }
+
+        for (BType memberType : unionType.getMemberTypes()) {
+            if (memberType.getTag() == TypeTags.UNION_TAG) {
+                getXMLNodeOnUnion((BUnionType) memberType, nodeTypes);
+            } else {
+               nodeTypes.add(getXmlNodeType(memberType));
+            }
+        }
+    }
     public static boolean isNumericType(BType type) {
         return type.getTag() < TypeTags.STRING_TAG;
     }
@@ -1673,6 +1790,10 @@ public class TypeChecker {
 
                 return false;
             case TypeTags.XML_TAG:
+            case TypeTags.XML_ELEMENT_TAG:
+            case TypeTags.XML_COMMENT_TAG:
+            case TypeTags.XML_TEXT_TAG:
+            case TypeTags.XML_PI_TAG:
                 return XMLFactory.isEqual((XMLValue) lhsValue, (XMLValue) rhsValue);
             case TypeTags.MAP_TAG:
             case TypeTags.JSON_TAG:

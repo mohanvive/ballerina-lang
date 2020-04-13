@@ -48,6 +48,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BXMLType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.TypeFlags;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangLiteral;
@@ -135,6 +136,7 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TYPEDESC_
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TYPEDESC_VALUE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TYPES_ERROR;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.UNION_TYPE;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.XML_TYPE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.XML_VALUE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmInstructionGen.B_STRING_VALUE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmInstructionGen.isBString;
@@ -1017,7 +1019,8 @@ class JvmTypeGen {
         } else if (bType.tag == TypeTags.JSON) {
             typeFieldName = "typeJSON";
         } else if (bType.tag == TypeTags.XML) {
-            typeFieldName = "typeXML";
+            loadXmlType(mv, (BXMLType) bType);
+            return;
         } else if (bType.tag == TypeTags.XML_ELEMENT) {
             typeFieldName = "typeElement";
         } else if (bType.tag == TypeTags.XML_PI) {
@@ -1079,6 +1082,8 @@ class JvmTypeGen {
         } else if (bType.tag == TypeTags.FUTURE) {
             loadFutureType(mv, (BFutureType) bType);
             return;
+        } else if (bType.tag == TypeTags.READONLY) {
+            typeFieldName = "typeReadonly";
         } else {
             // TODO Fix properly - rajith
             return;
@@ -1184,6 +1189,25 @@ class JvmTypeGen {
         } else {
             mv.visitMethodInsn(INVOKESPECIAL, TABLE_TYPE, "<init>", String.format("(L%s;)V", BTYPE), false);
         }
+    }
+
+    /**
+     * Generate code to load an instance of the given xml sequence type
+     * to the top of the stack.
+     *
+     * @param mv    method visitor
+     * @param bType xml type to load
+     */
+    private static void loadXmlType(MethodVisitor mv, BXMLType bType) {
+        // Create an new xml type
+        mv.visitTypeInsn(NEW, XML_TYPE);
+        mv.visitInsn(DUP);
+
+        // Load the constraint type
+        loadType(mv, bType.constraint);
+
+        // invoke the constructor
+        mv.visitMethodInsn(INVOKESPECIAL, XML_TYPE, "<init>", String.format("(L%s;)V", BTYPE), false);
     }
 
     private static void loadStreamType(MethodVisitor mv, BStreamType bType) {
@@ -1414,7 +1438,8 @@ class JvmTypeGen {
                 bType.tag == TypeTags.ANYDATA ||
                 bType.tag == TypeTags.UNION ||
                 bType.tag == TypeTags.JSON ||
-                bType.tag == TypeTags.FINITE) {
+                bType.tag == TypeTags.FINITE ||
+                bType.tag == TypeTags.READONLY) {
             return String.format("L%s;", OBJECT);
         } else if (bType.tag == TypeTags.INVOKABLE) {
             return String.format("L%s;", FUNCTION_POINTER);
